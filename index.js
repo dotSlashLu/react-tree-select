@@ -16,19 +16,51 @@ class DslTreeSelectSearchInput extends React.Component {
 class DslTreeSelectNode extends React.Component {
   constructor(...args) {
     super(...args);
+    this.state = {
+      showChildren: false
+    };
+  }
+
+  componentWillMount() {
+    this.setState({show: this.props.show});
+  }
+
+  selectHandler() {
+
   }
 
   labelClickHandler(e) {
     e.preventDefault();
-
-    // show all children?
+    console.log("click label");
+    if (!this.props.isLeaf) {
+      let showChildren = !this.state.showChildren;
+      console.log(showChildren);
+      this.setState({showChildren: showChildren});
+    }
   }
 
   render() {
+    console.log(
+      "render node", this.props.label
+    );
+    const shownChildren = () => {
+      // if not in search mode
+      console.log(this.state.showChildren);
+      if (!this.props.matchedPath)
+        return this.state.showChildren ? this.props.children : null;
+      // if in search mode
+      // show matched children
+      return React.Children.map(this.props.children, (child) => {
+        if (child.props.label == this.props.matchedPath[1])
+          return child;
+        return null;
+      });
+    }
+
     let ulCls = classNames(
       "dsl-ts-node",
       this.props.ulClassNames,
-      {"hide": !this.props.show}
+      // {"hide": !this.state.show}
     );
     let liCls = classNames(
       "dsl-ts-node-label",
@@ -38,12 +70,12 @@ class DslTreeSelectNode extends React.Component {
     if (!this.isLeaf)
       return (
         <ul className={ulCls}>
-          <li 
+          <li
           className={liCls}
           onClick={this.labelClickHandler.bind(this)}>
             {this.props.label}
           </li>
-          {this.props.children}
+          {shownChildren()}
         </ul>
       )
 
@@ -65,23 +97,69 @@ DslTreeSelectNode.propTypes = {
   // wether this node can be selected
   // if it can, a checkbox is displayed
   // default: true
-  canSelect: React.PropTypes.bool 
+  canSelect: React.PropTypes.bool,
+  // depth of the node,
+  // useful for searching
+  depth: React.PropTypes.number.isRequired,
+  // when searching, if a path is matched,
+  // it will be broken into an array
+  // if the node is in this path
+  // then it should be shown
+  matchedPath: React.PropTypes.arrayOf(React.PropTypes.string),
+
+  isLeaf: React.PropTypes.bool,
+  liClassNames: React.PropTypes.string,
+  ulClassNames: React.PropTypes.string,
+  label: React.PropTypes.string
 }
 
 
 class DslTreeSelect extends React.Component {
   constructor(...args) {
     super(...args);
+    this.state = {
+      selected: [],
+      matchedPath: []
+    };
+
+    // only longest paths are needed
+    this.searchIndex = [];
+  }
+
+  generateNodes(root, depth, idx) {
+    console.debug("gen node", root);
+    const loopChildren = (node) => {
+      if (node.children)
+        return node.children.map((child, idx2) => {
+          return this.generateNodes(child, depth + 1, depth + "-" + idx2);
+        });
+
+      return null;
+    };
+
+    return (
+      <DslTreeSelectNode
+      label={root.value}
+      isLeaf={root.children ? false : true}
+      show={true}
+      depth={depth}
+      matchedPath={this.state.matchedPath}
+      key={depth + "-" + idx}>
+        {loopChildren(root)}
+      </DslTreeSelectNode>
+    )
   }
 
   render() {
     return (
       <div>
         <DslTreeSelectSearchInput
-          classNames={this.props.searchInputClassNames}
-          readOnly={!this.props.search}
-        />
+        classNames={this.props.searchInputClassNames}
+        readOnly={!this.props.search}/>
         <div>
+          {this.props.data.map((datum, idx) => {
+            return this.generateNodes(datum, 0, idx);
+          })}
         </div>
       </div>
     )
@@ -105,6 +183,7 @@ DslTreeSelect.propTypes = {
   search: React.PropTypes.bool,
 
   searchInputClassNames: React.PropTypes.string,
+
 
   // which level can be selected
   // default: "node"
@@ -138,4 +217,3 @@ DslTreeSelect.defaultProps = {
 }
 
 export default DslTreeSelect;
-
