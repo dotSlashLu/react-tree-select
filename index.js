@@ -2,11 +2,21 @@ import React from "react";
 import classNames from "classnames";
 
 class DslTreeSelectSearchInput extends React.Component {
+  constructor(...args) {
+    super(...args);
+    this.state = {
+      value: "" 
+    };
+  }
+
+
   render() {
     return (
       <input
       className={this.props.classNames}
-      readOnly={this.props.readOnly}>
+      readOnly={this.props.readOnly}
+      value={this.state.value}
+      onChange={this.props.changeHandler}>
       </input>
     )
   }
@@ -126,12 +136,20 @@ class DslTreeSelect extends React.Component {
     this.searchIndex = [];
   }
 
-  generateNodes(root, depth, idx) {
+  generateNodes(root, depth, idx, path = "") {
     console.debug("gen node", root);
+    path += root.label; 
+    if (root.children)
+      path += "->";
+    // if it's leaf node,
+    // build search index
+    else
+      this.searchIndex.push(path);
+
     const loopChildren = (node) => {
       if (node.children)
         return node.children.map((child, idx2) => {
-          return this.generateNodes(child, depth + 1, depth + "-" + idx2);
+          return this.generateNodes(child, depth + 1, depth + "-" + idx2, path);
         });
 
       return null;
@@ -141,7 +159,6 @@ class DslTreeSelect extends React.Component {
       <DslTreeSelectNode
       label={root.value}
       isLeaf={root.children ? false : true}
-      show={true}
       depth={depth}
       matchedPath={this.state.matchedPath}
       key={depth + "-" + idx}>
@@ -150,12 +167,25 @@ class DslTreeSelect extends React.Component {
     )
   }
 
+  searchChangeHandler(e) {
+    e.preventDefault();
+    let val = e.target.value;
+    console.debug("searching for " + val);
+    // loop through searchIndex and match
+    this.searchIndex.forEach((path) => {
+      if (!path.match(val)) return;
+      let matched = [...this.state.matchedPath, path.split("->")];
+      this.setState({matchedPath: matched});
+    })
+  }
+
   render() {
     return (
       <div>
         <DslTreeSelectSearchInput
         classNames={this.props.searchInputClassNames}
-        readOnly={!this.props.search}/>
+        readOnly={!this.props.search}
+        changeHandler={this.searchChangeHandler.bind(this)}/>
         <div>
           {this.props.data.map((datum, idx) => {
             return this.generateNodes(datum, 0, idx);
