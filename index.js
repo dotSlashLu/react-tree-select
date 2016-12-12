@@ -5,7 +5,7 @@ class DslTreeSelectSearchInput extends React.Component {
   constructor(...args) {
     super(...args);
     this.state = {
-      value: "" 
+      value: ""
     };
   }
 
@@ -16,7 +16,10 @@ class DslTreeSelectSearchInput extends React.Component {
       className={this.props.classNames}
       readOnly={this.props.readOnly}
       value={this.state.value}
-      onChange={this.props.changeHandler}>
+      onChange={(e) => {
+        this.setState({"value": e.target.value});
+        this.props.changeHandler(e)
+      }}>
       </input>
     )
   }
@@ -31,9 +34,15 @@ class DslTreeSelectNode extends React.Component {
     };
   }
 
-  componentWillMount() {
-    this.setState({show: this.props.show});
+  componentWillReceiveProps(nextProps) {
+    this.setState({
+      // unused state
+      show: nextProps.show,
+      showChildren: nextProps.showChildren
+    });
   }
+
+
 
   selectHandler() {
 
@@ -44,27 +53,51 @@ class DslTreeSelectNode extends React.Component {
     console.log("click label");
     if (!this.props.isLeaf) {
       let showChildren = !this.state.showChildren;
-      console.log(showChildren);
+      // console.log("state.showChildren", showChildren);
       this.setState({showChildren: showChildren});
     }
   }
 
   render() {
     console.log(
-      "render node", this.props.label
+      "matched path at the depth of this node(" +
+        this.props.label + " " + this.props.depth +
+      ")",
+      this.props.matchedPath
     );
+
+    // console.log(
+    //   "render node", this.props.label
+    // );
     const shownChildren = () => {
       // if not in search mode
-      console.log(this.state.showChildren);
+      // console.log(
+      //   "state.showChildren", this.state.showChildren,
+      //   "props.matchedPath", this.props.matchedPath,
+      //   "props.children", this.props.children
+      // );
+
+      if (!this.state.showChildren)
+        return null;
+
       if (!this.props.matchedPath)
         return this.state.showChildren ? this.props.children : null;
+
       // if in search mode
       // show matched children
-      return React.Children.map(this.props.children, (child) => {
-        if (child.props.label == this.props.matchedPath[1])
+      let children = React.Children.map(this.props.children, (child) => {
+        let matched = false;
+        console.log(
+          "matched", child.props.matchedPath,
+          "this node", child.props.label,
+          "result", this.props.matchedPath.indexOf(child.props.label)
+        );
+        if (child.props.matchedPath.indexOf(child.props.label) >= 0)
           return child;
         return null;
       });
+      console.log("shown children", children);
+      return children;
     }
 
     let ulCls = classNames(
@@ -78,16 +111,20 @@ class DslTreeSelectNode extends React.Component {
     );
 
     if (!this.isLeaf)
-      return (
-        <ul className={ulCls}>
-          <li
-          className={liCls}
-          onClick={this.labelClickHandler.bind(this)}>
-            {this.props.label}
-          </li>
-          {shownChildren()}
-        </ul>
-      )
+      // searching
+      if (!this.props.matchedPath ||
+        this.props.matchedPath.indexOf(this.props.label) >= 0)
+        return (
+          <ul className={ulCls}>
+            <li
+            className={liCls}
+            onClick={this.labelClickHandler.bind(this)}>
+              {this.props.label}
+            </li>
+            {shownChildren()}
+          </ul>
+        );
+      return null;
 
     return (
       <li className={liCls}>
@@ -115,7 +152,9 @@ DslTreeSelectNode.propTypes = {
   // it will be broken into an array
   // if the node is in this path
   // then it should be shown
-  matchedPath: React.PropTypes.arrayOf(React.PropTypes.string),
+  matchedPath: React.PropTypes.arrayOf(
+    React.PropTypes.string
+  ),
 
   isLeaf: React.PropTypes.bool,
   liClassNames: React.PropTypes.string,
@@ -129,7 +168,8 @@ class DslTreeSelect extends React.Component {
     super(...args);
     this.state = {
       selected: [],
-      matchedPath: []
+      matchedPath: null,
+      showAllNodes: false
     };
 
     // only longest paths are needed
@@ -137,14 +177,16 @@ class DslTreeSelect extends React.Component {
   }
 
   generateNodes(root, depth, idx, path = "") {
-    console.debug("gen node", root);
-    path += root.label; 
+    // console.debug("gen node", root);
+    path += root.value;
     if (root.children)
       path += "->";
     // if it's leaf node,
     // build search index
-    else
+    else {
       this.searchIndex.push(path);
+      // console.log("search index", this.searchIndex);
+    }
 
     const loopChildren = (node) => {
       if (node.children)
@@ -155,12 +197,20 @@ class DslTreeSelect extends React.Component {
       return null;
     };
 
+    console.log(this.state.matchedPath);
+    let matchedPaths = null;
+    if (this.state.matchedPath)
+      matchedPaths = this.state.matchedPath.map((path) => {
+        return path[depth];
+      });
+    console.log("matchedPaths at depth " + depth, matchedPaths);
     return (
       <DslTreeSelectNode
       label={root.value}
       isLeaf={root.children ? false : true}
       depth={depth}
-      matchedPath={this.state.matchedPath}
+      matchedPath={matchedPaths}
+      showChildren={this.state.showAllNodes}
       key={depth + "-" + idx}>
         {loopChildren(root)}
       </DslTreeSelectNode>
@@ -170,16 +220,31 @@ class DslTreeSelect extends React.Component {
   searchChangeHandler(e) {
     e.preventDefault();
     let val = e.target.value;
-    console.debug("searching for " + val);
+    console.debug(
+      "searching for " + val,
+      "index", this.searchIndex
+    );
     // loop through searchIndex and match
+    let matched = [];
     this.searchIndex.forEach((path) => {
+      console.debug(
+        "matching against", path,
+        "result", path.match(val)
+      );
       if (!path.match(val)) return;
-      let matched = [...this.state.matchedPath, path.split("->")];
-      this.setState({matchedPath: matched});
-    })
+      matched = [...matched, path.split("->")];
+    });
+    // when searching, show all nodes
+    this.setState({
+      matchedPath: matched,
+      showAllNodes: true
+    }, () => {
+      console.debug("matchedPath", this.state.matchedPath);
+    });
   }
 
   render() {
+    this.searchIndex = [];
     return (
       <div>
         <DslTreeSelectSearchInput
@@ -247,3 +312,4 @@ DslTreeSelect.defaultProps = {
 }
 
 export default DslTreeSelect;
+
