@@ -1,0 +1,48 @@
+{
+  "name": "react-tree-select",
+  "version": "1.0.0",
+  "description": "React tree-style select component",
+  "main": "build/DslTreeSelect.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "./node_modules/.bin/babel lib -d build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dotSlashLu/react-tree-select.git"
+  },
+  "keywords": [
+    "react",
+    "component",
+    "tree",
+    "select"
+  ],
+  "author": "Dotslash.Lu <dotslash.lu@gmail.com>",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/dotSlashLu/react-tree-select/issues"
+  },
+  "homepage": "https://github.com/dotSlashLu/react-tree-select#readme",
+  "devDependencies": {
+    "babel-cli": "^6.18.0",
+    "babel-plugin-transform-object-rest-spread": "^6.20.2",
+    "babel-preset-env": "^1.1.4",
+    "babel-preset-react": "^6.16.0",
+    "react": "^15.4.1"
+  },
+  "babel": {
+    "presets": [
+      "env",
+      "react"
+    ],
+    "plugins": [
+      "transform-object-rest-spread"
+    ]
+  },
+  "dependencies": {
+    "classnames": "^2.2.5"
+  }
+}
